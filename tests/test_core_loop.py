@@ -29,7 +29,7 @@ class FakeAdapter:
     def __init__(self, parsed_runs: list[dict[str, bool]]) -> None:
         self._parsed_runs = list(parsed_runs)
 
-    def parse(self, stdout: str) -> dict[str, bool]:
+    def parse(self, run_result: object) -> dict[str, bool]:
         if not self._parsed_runs:
             raise AssertionError("adapter called more times than expected")
         return self._parsed_runs.pop(0)

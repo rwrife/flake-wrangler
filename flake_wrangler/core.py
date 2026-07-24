@@ -16,7 +16,7 @@ class SupportsRun(Protocol):
 
 
 class SupportsParse(Protocol):
-    def parse(self, stdout: str) -> dict[str, bool]:
+    def parse(self, run_result: RunResultLike) -> dict[str, bool]:
         ...
 
 
@@ -28,7 +28,7 @@ def execute_repeated(*, runner: SupportsRun, adapter: SupportsParse, repeat: int
     aggregated = AggregatedRunResults(repeat=repeat)
     for run_index in range(1, repeat + 1):
         run_result = runner.run()
-        test_outcomes = adapter.parse(run_result.stdout)
+        test_outcomes = adapter.parse(run_result)
         aggregated.record_run(
             run_index=run_index,
             exit_code=run_result.exit_code,

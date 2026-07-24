@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 from typing import Sequence
 
-from .adapters import LineResultsAdapter
+from .adapters import LineResultsAdapter, PytestJUnitResultsAdapter, PytestJUnitRunner
 from .core import execute_repeated
 from .runner import SubprocessRunner
 
@@ -29,14 +30,32 @@ def _normalize_command(command: Sequence[str]) -> list[str]:
     return command or ["pytest"]
 
 
+def _is_pytest_command(command: Sequence[str]) -> bool:
+    if not command:
+        return False
+
+    first = os.path.basename(command[0])
+    if first in {"pytest", "py.test"}:
+        return True
+
+    if first.startswith("python") and len(command) >= 3:
+        return command[1] == "-m" and command[2] == "pytest"
+
+    return False
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
     if args.command == "run":
         target_command = _normalize_command(args.target_command)
-        runner = SubprocessRunner(target_command)
-        adapter = LineResultsAdapter()
+        if _is_pytest_command(target_command):
+            runner = PytestJUnitRunner(target_command)
+            adapter = PytestJUnitResultsAdapter()
+        else:
+            runner = SubprocessRunner(target_command)
+            adapter = LineResultsAdapter()
         aggregated = execute_repeated(runner=runner, adapter=adapter, repeat=args.repeat)
 
         for run in aggregated.runs:
