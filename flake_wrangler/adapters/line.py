@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 
+def _extract_stdout(run_result: object) -> str:
+    if isinstance(run_result, str):
+        return run_result
+    return getattr(run_result, "stdout", "")
+
+
 class LineResultsAdapter:
     """Parse lines like: '<test-id> PASS' or '<test-id> FAIL'."""
 
-    def parse(self, stdout: str) -> dict[str, bool]:
+    def parse(self, run_result: object) -> dict[str, bool]:
+        stdout = _extract_stdout(run_result)
         outcomes: dict[str, bool] = {}
         for raw_line in stdout.splitlines():
             line = raw_line.strip()
