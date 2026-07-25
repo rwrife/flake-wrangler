@@ -48,16 +48,24 @@ class PytestJUnitRunner:
 class PytestJUnitResultsAdapter:
     """Parse pytest JUnit XML into normalized pass/fail outcomes.
 
-    Skipped tests are excluded from output so they do not affect fail-rate math.
+    Skipped tests are excluded from pass/fail output and tracked separately.
     """
+
+    def __init__(self) -> None:
+        self._last_skipped_tests: set[str] = set()
+
+    def get_last_skipped_tests(self) -> set[str]:
+        return set(self._last_skipped_tests)
 
     def parse(self, run_result: object) -> dict[str, bool]:
         junit_xml_path = getattr(run_result, "junit_xml_path", None)
         if not isinstance(junit_xml_path, str) or not junit_xml_path:
+            self._last_skipped_tests = set()
             return {}
 
         try:
-            outcomes = self.parse_junit_xml(junit_xml_path)
+            outcomes, skipped = self.parse_junit_xml(junit_xml_path)
+            self._last_skipped_tests = skipped
         finally:
             # Best-effort cleanup of temporary artifact.
             try:
@@ -67,21 +75,23 @@ class PytestJUnitResultsAdapter:
 
         return outcomes
 
-    def parse_junit_xml(self, junit_xml_path: str) -> dict[str, bool]:
+    def parse_junit_xml(self, junit_xml_path: str) -> tuple[dict[str, bool], set[str]]:
         xml_path = Path(junit_xml_path)
         if not xml_path.exists():
-            return {}
+            return {}, set()
 
         tree = ET.parse(xml_path)
         root = tree.getroot()
 
         outcomes: dict[str, bool] = {}
+        skipped_tests: set[str] = set()
         for testcase in root.iter("testcase"):
             node_id = _build_node_id(testcase)
             if not node_id:
                 continue
 
             if testcase.find("skipped") is not None:
+                skipped_tests.add(node_id)
                 continue
 
             passed = testcase.find("failure") is None and testcase.find("error") is None
@@ -91,7 +101,7 @@ class PytestJUnitResultsAdapter:
             else:
                 outcomes[node_id] = passed
 
-        return outcomes
+        return outcomes, skipped_tests
 
 
 def _build_node_id(testcase: ET.Element) -> str:

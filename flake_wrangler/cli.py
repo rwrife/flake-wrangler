@@ -16,6 +16,12 @@ def _build_parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser("run", help="Run a test command repeatedly")
     run_parser.add_argument("--repeat", type=int, required=True, help="How many runs to execute")
     run_parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.1,
+        help="Failure-rate threshold for flaky classification (default: 0.1)",
+    )
+    run_parser.add_argument(
         "target_command",
         nargs=argparse.REMAINDER,
         help="Command to run. Example: flake-wrangler run --repeat 5 -- pytest -q",
@@ -65,6 +71,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         for test_id in sorted(aggregated.by_test):
             symbols = ["PASS" if passed else "FAIL" for passed in aggregated.by_test[test_id]]
             print(f"  {test_id}: {', '.join(symbols)}")
+
+        classifications, never_ran = aggregated.classify(threshold=args.threshold)
+        print(f"threshold={args.threshold}")
+        print("classification:")
+        for item in classifications:
+            print(
+                f"  {item.test_id}: runs={item.runs} fails={item.fails} "
+                f"rate={item.failure_rate:.3f} verdict={item.verdict}"
+            )
+
+        if never_ran:
+            print("never-ran:")
+            for test_id in never_ran:
+                print(f"  {test_id}")
+
         return 0
 
     parser.error("unknown command")

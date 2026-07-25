@@ -22,6 +22,7 @@ def test_parse_junit_fixture_maps_outcomes_and_excludes_skips(tmp_path: Path) ->
         "tests/test_math.py::test_error": False,
     }
     assert "tests/test_math.py::test_skip" not in outcomes
+    assert adapter.get_last_skipped_tests() == {"tests/test_math.py::test_skip"}
     # Adapter performs best-effort temp artifact cleanup.
     assert not xml_path.exists()
 
