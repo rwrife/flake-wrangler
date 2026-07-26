@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from flake_wrangler import cli
+from flake_wrangler.models import TestClassification as Classification
 
 
 @dataclass
@@ -20,7 +21,18 @@ class _FakeAggregated:
 
     def classify(self, *, threshold: float = 0.1):
         self.classify_calls.append(threshold)
-        return [], []
+        return (
+            [
+                Classification(
+                    test_id="t",
+                    runs=1,
+                    fails=0,
+                    failure_rate=0.0,
+                    verdict="stable",
+                )
+            ],
+            [],
+        )
 
 
 def test_cli_honors_threshold_argument(monkeypatch, capsys) -> None:
@@ -37,4 +49,6 @@ def test_cli_honors_threshold_argument(monkeypatch, capsys) -> None:
     assert fake.classify_calls == [0.33]
 
     out = capsys.readouterr().out
-    assert "threshold=0.33" in out
+    assert "Test" in out
+    assert "Failure rate" in out
+    assert "stable" in out

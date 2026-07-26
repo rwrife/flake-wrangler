@@ -53,6 +53,10 @@ flake-wrangler run --runner pytest -- tests/integration --repeat 30 --threshold 
 
 # Emit a quarantine file for tests failing >10% of runs
 flake-wrangler run --repeat 20 --threshold 0.1 --quarantine-out quarantine.txt
+
+# Choose report format and write to a file
+flake-wrangler run --repeat 25 --report md --out flakes.md
+flake-wrangler run --repeat 25 --report json --out flakes.json
 ```
 
 ## Example commands or workflows
@@ -71,6 +75,30 @@ tests/test_api.py::test_timeout         25      6         0.24   FLAKY
 tests/test_db.py::test_migrate          25      0         0.00   stable
 tests/test_auth.py::test_token_refresh  25      1         0.04   suspect
 ```
+
+JSON schema (`--report json`):
+
+```json
+{
+  "schema_version": "1.0",
+  "tool": "flake-wrangler",
+  "threshold": 0.1,
+  "repeat": 20,
+  "tests": [
+    {
+      "test": "tests/test_api.py::test_timeout",
+      "runs": 20,
+      "fails": 4,
+      "failure_rate": 0.2,
+      "verdict": "flaky"
+    }
+  ],
+  "never_ran": ["tests/test_slow.py::test_only_skipped"]
+}
+```
+
+- `tests` contains one object per executed test.
+- `never_ran` contains tests observed only as skipped across all runs.
 
 Wire it into CI as a nightly job:
 

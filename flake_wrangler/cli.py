@@ -6,6 +6,7 @@ from typing import Sequence
 
 from .adapters import LineResultsAdapter, PytestJUnitResultsAdapter, PytestJUnitRunner
 from .core import execute_repeated
+from .reporters import ReportData, build_reporter
 from .runner import SubprocessRunner
 
 
@@ -20,6 +21,16 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.1,
         help="Failure-rate threshold for flaky classification (default: 0.1)",
+    )
+    run_parser.add_argument(
+        "--report",
+        choices=["table", "json", "md"],
+        default="table",
+        help="Report format (default: table)",
+    )
+    run_parser.add_argument(
+        "--out",
+        help="Write report output to a file path (default: stdout)",
     )
     run_parser.add_argument(
         "target_command",
@@ -63,28 +74,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             runner = SubprocessRunner(target_command)
             adapter = LineResultsAdapter()
         aggregated = execute_repeated(runner=runner, adapter=adapter, repeat=args.repeat)
-
-        for run in aggregated.runs:
-            print(f"run={run.run_index} exit={run.exit_code} tests={len(run.test_outcomes)}")
-
-        print("aggregated:")
-        for test_id in sorted(aggregated.by_test):
-            symbols = ["PASS" if passed else "FAIL" for passed in aggregated.by_test[test_id]]
-            print(f"  {test_id}: {', '.join(symbols)}")
-
         classifications, never_ran = aggregated.classify(threshold=args.threshold)
-        print(f"threshold={args.threshold}")
-        print("classification:")
-        for item in classifications:
-            print(
-                f"  {item.test_id}: runs={item.runs} fails={item.fails} "
-                f"rate={item.failure_rate:.3f} verdict={item.verdict}"
-            )
 
-        if never_ran:
-            print("never-ran:")
-            for test_id in never_ran:
-                print(f"  {test_id}")
+        reporter = build_reporter(args.report)
+        report_data = ReportData(
+            repeat=args.repeat,
+            threshold=args.threshold,
+            tests=classifications,
+            never_ran=never_ran,
+        )
+        rendered = reporter.render(report_data)
+
+        if args.out:
+            with open(args.out, "w", encoding="utf-8") as handle:
+                handle.write(rendered)
+                handle.write("\n")
+        else:
+            print(rendered)
 
         return 0
 
