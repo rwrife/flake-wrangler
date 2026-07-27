@@ -52,3 +52,92 @@ def test_cli_honors_threshold_argument(monkeypatch, capsys) -> None:
     assert "Test" in out
     assert "Failure rate" in out
     assert "stable" in out
+
+
+def test_cli_quarantine_out_writes_only_flaky_in_deterministic_order(monkeypatch, tmp_path) -> None:
+    class _FakeAggregatedForQuarantine:
+        def classify(self, *, threshold: float = 0.1):
+            return (
+                [
+                    Classification(
+                        test_id="tests/z.py::test_stable",
+                        runs=3,
+                        fails=0,
+                        failure_rate=0.0,
+                        verdict="stable",
+                    ),
+                    Classification(
+                        test_id="tests/b.py::test_flaky_two",
+                        runs=3,
+                        fails=2,
+                        failure_rate=0.666,
+                        verdict="flaky",
+                    ),
+                    Classification(
+                        test_id="tests/a.py::test_flaky_one",
+                        runs=3,
+                        fails=1,
+                        failure_rate=0.333,
+                        verdict="flaky",
+                    ),
+                ],
+                [],
+            )
+
+    monkeypatch.setattr(cli, "execute_repeated", lambda **kwargs: _FakeAggregatedForQuarantine())
+
+    quarantine_path = tmp_path / "quarantine.txt"
+    code = cli.main(
+        [
+            "run",
+            "--repeat",
+            "3",
+            "--quarantine-out",
+            str(quarantine_path),
+            "--",
+            "echo",
+            "ok",
+        ]
+    )
+
+    assert code == 0
+    assert quarantine_path.read_text(encoding="utf-8") == (
+        "tests/a.py::test_flaky_one\n"
+        "tests/b.py::test_flaky_two\n"
+    )
+
+
+def test_cli_quarantine_out_writes_empty_file_when_no_flaky(monkeypatch, tmp_path) -> None:
+    class _FakeAggregatedNoFlaky:
+        def classify(self, *, threshold: float = 0.1):
+            return (
+                [
+                    Classification(
+                        test_id="tests/a.py::test_stable",
+                        runs=2,
+                        fails=0,
+                        failure_rate=0.0,
+                        verdict="stable",
+                    )
+                ],
+                [],
+            )
+
+    monkeypatch.setattr(cli, "execute_repeated", lambda **kwargs: _FakeAggregatedNoFlaky())
+
+    quarantine_path = tmp_path / "quarantine-empty.txt"
+    code = cli.main(
+        [
+            "run",
+            "--repeat",
+            "2",
+            "--quarantine-out",
+            str(quarantine_path),
+            "--",
+            "echo",
+            "ok",
+        ]
+    )
+
+    assert code == 0
+    assert quarantine_path.read_text(encoding="utf-8") == ""
