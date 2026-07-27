@@ -33,6 +33,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Write report output to a file path (default: stdout)",
     )
     run_parser.add_argument(
+        "--quarantine-out",
+        help="Write flaky test ids (one per line) to a file path",
+    )
+    run_parser.add_argument(
         "target_command",
         nargs=argparse.REMAINDER,
         help="Command to run. Example: flake-wrangler run --repeat 5 -- pytest -q",
@@ -91,6 +95,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 handle.write("\n")
         else:
             print(rendered)
+
+        if args.quarantine_out:
+            quarantine_tests = sorted(
+                item.test_id for item in classifications if item.verdict.lower() == "flaky"
+            )
+            with open(args.quarantine_out, "w", encoding="utf-8") as handle:
+                if quarantine_tests:
+                    handle.write("\n".join(quarantine_tests))
+                    handle.write("\n")
 
         return 0
 
