@@ -36,9 +36,6 @@ runs."
 
 ## How to use
 
-> Status: early scaffold. The CLI described here is the target interface; see
-> the issue backlog and PLAN.md for what's implemented vs. planned.
-
 Quickstart:
 
 ```bash
@@ -49,7 +46,7 @@ pip install flake-wrangler        # or: pipx install flake-wrangler
 flake-wrangler run --runner pytest --repeat 20
 
 # Target a subset and set a flakiness threshold
-flake-wrangler run --runner pytest -- tests/integration --repeat 30 --threshold 0.1
+flake-wrangler run --runner pytest --repeat 30 --threshold 0.1 -- tests/integration
 
 # Emit a quarantine file for tests failing >10% of runs
 flake-wrangler run --repeat 20 --threshold 0.1 --quarantine-out quarantine.txt
@@ -58,6 +55,20 @@ flake-wrangler run --repeat 20 --threshold 0.1 --quarantine-out quarantine.txt
 flake-wrangler run --repeat 25 --report md --out flakes.md
 flake-wrangler run --repeat 25 --report json --out flakes.json
 ```
+
+Optional config defaults via `flake-wrangler.toml`:
+
+```toml
+[run]
+runner = "pytest"
+repeat = 20
+threshold = 0.1
+report = "md"
+out = "flakes.md"
+quarantine-out = "quarantine.txt"
+```
+
+Any explicit CLI flag overrides config values.
 
 ## Example commands or workflows
 
@@ -119,12 +130,12 @@ jobs:
 ## Current status / next milestones
 
 - [x] Repository bootstrapped with README + PLAN
-- [ ] Core run loop: execute a runner N times and capture per-test results (#1)
-- [ ] pytest results adapter (parse per-test outcomes) (#2)
-- [ ] Flakiness classification + threshold logic (#3)
-- [ ] Report formats: table / JSON / Markdown (#4)
-- [ ] Quarantine list output (#5)
-- [ ] CLI argument parsing and config file (#6)
+- [x] Core run loop: execute a runner N times and capture per-test results (#1)
+- [x] pytest results adapter (parse per-test outcomes) (#2)
+- [x] Flakiness classification + threshold logic (#3)
+- [x] Report formats: table / JSON / Markdown (#4)
+- [x] Quarantine list output (#5)
+- [x] CLI argument parsing and config file (#6)
 - [ ] CI-friendly exit codes and GitHub Actions example (#7)
 
 See the [issue backlog](https://github.com/rwrife/flake-wrangler/issues) and
