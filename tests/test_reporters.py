@@ -92,6 +92,7 @@ def test_cli_out_writes_report_to_file(monkeypatch, tmp_path, capsys) -> None:
             "md",
             "--out",
             str(out_path),
+            "--no-fail-on-flaky",
             "--",
             "echo",
             "ok",

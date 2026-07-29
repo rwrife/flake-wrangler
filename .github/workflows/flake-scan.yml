@@ -1,0 +1,38 @@
+name: flake scan
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  flake-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install flake-wrangler
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Detect flaky tests
+        run: |
+          flake-wrangler run \
+            --runner pytest \
+            --repeat 20 \
+            --threshold 0.1 \
+            --report md \
+            --out flakes.md \
+            --quarantine-out quarantine.txt \
+            --fail-on-flaky \
+            -- pytest -q
+      - name: Upload flake report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flake-wrangler-report
+          path: |
+            flakes.md
+            quarantine.txt

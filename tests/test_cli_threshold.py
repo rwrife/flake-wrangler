@@ -94,6 +94,7 @@ def test_cli_quarantine_out_writes_only_flaky_in_deterministic_order(monkeypatch
             "3",
             "--quarantine-out",
             str(quarantine_path),
+            "--no-fail-on-flaky",
             "--",
             "echo",
             "ok",
@@ -141,3 +142,47 @@ def test_cli_quarantine_out_writes_empty_file_when_no_flaky(monkeypatch, tmp_pat
 
     assert code == 0
     assert quarantine_path.read_text(encoding="utf-8") == ""
+
+
+def test_cli_returns_nonzero_when_flaky_and_fail_on_flaky_enabled(monkeypatch) -> None:
+    class _FakeAggregatedFlaky:
+        def classify(self, *, threshold: float = 0.1):
+            return (
+                [
+                    Classification(
+                        test_id="tests/a.py::test_flaky",
+                        runs=3,
+                        fails=1,
+                        failure_rate=0.333,
+                        verdict="flaky",
+                    )
+                ],
+                [],
+            )
+
+    monkeypatch.setattr(cli, "execute_repeated", lambda **kwargs: _FakeAggregatedFlaky())
+
+    code = cli.main(["run", "--repeat", "3", "--", "echo", "ok"])
+    assert code == 1
+
+
+def test_cli_returns_zero_when_flaky_and_no_fail_on_flaky(monkeypatch) -> None:
+    class _FakeAggregatedFlaky:
+        def classify(self, *, threshold: float = 0.1):
+            return (
+                [
+                    Classification(
+                        test_id="tests/a.py::test_flaky",
+                        runs=3,
+                        fails=1,
+                        failure_rate=0.333,
+                        verdict="flaky",
+                    )
+                ],
+                [],
+            )
+
+    monkeypatch.setattr(cli, "execute_repeated", lambda **kwargs: _FakeAggregatedFlaky())
+
+    code = cli.main(["run", "--repeat", "3", "--no-fail-on-flaky", "--", "echo", "ok"])
+    assert code == 0

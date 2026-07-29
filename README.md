@@ -70,6 +70,20 @@ quarantine-out = "quarantine.txt"
 
 Any explicit CLI flag overrides config values.
 
+### Exit codes
+
+`flake-wrangler run` returns:
+
+- `0` when no flaky tests are detected.
+- `1` when flaky tests are detected and fail-on-flaky mode is enabled.
+- `2` for argument/config usage errors (from `argparse`).
+
+Fail-on-flaky mode is configurable:
+
+- `--fail-on-flaky` (default behavior)
+- `--no-fail-on-flaky`
+- `run.fail-on-flaky = true/false` in `flake-wrangler.toml`
+
 ## Example commands or workflows
 
 Detect flakes and produce a JSON report:
@@ -114,17 +128,45 @@ JSON schema (`--report json`):
 Wire it into CI as a nightly job:
 
 ```yaml
-# .github/workflows/flake-scan.yml (planned)
+# .github/workflows/flake-scan.yml
+name: flake scan
+
 on:
   schedule:
     - cron: "0 3 * * *"
+  workflow_dispatch:
+
 jobs:
   flake-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install flake-wrangler
-      - run: flake-wrangler run --runner pytest --repeat 20 --report md --out flakes.md
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install flake-wrangler
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Detect flaky tests
+        run: |
+          flake-wrangler run \
+            --runner pytest \
+            --repeat 20 \
+            --threshold 0.1 \
+            --report md \
+            --out flakes.md \
+            --quarantine-out quarantine.txt \
+            --fail-on-flaky \
+            -- pytest -q
+      - name: Upload flake report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flake-wrangler-report
+          path: |
+            flakes.md
+            quarantine.txt
 ```
 
 ## Current status / next milestones
@@ -136,7 +178,7 @@ jobs:
 - [x] Report formats: table / JSON / Markdown (#4)
 - [x] Quarantine list output (#5)
 - [x] CLI argument parsing and config file (#6)
-- [ ] CI-friendly exit codes and GitHub Actions example (#7)
+- [x] CI-friendly exit codes and GitHub Actions example (#7)
 
 See the [issue backlog](https://github.com/rwrife/flake-wrangler/issues) and
 [PLAN.md](./PLAN.md) for details.
