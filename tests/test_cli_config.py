@@ -35,6 +35,7 @@ threshold = 0.25
 report = "json"
 out = "from-config.json"
 quarantine-out = "from-config.txt"
+fail-on-flaky = false
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -74,12 +75,13 @@ quarantine-out = "from-config.txt"
             "from-cli.md",
             "--quarantine-out",
             "from-cli.txt",
+            "--fail-on-flaky",
             "--",
             "echo",
             "ok",
         ]
     )
-    assert code == 0
+    assert code == 1
     assert calls[1]["repeat"] == 2
     assert calls[1]["runner"].__class__.__name__ == "PytestJUnitRunner"
     assert calls[1]["adapter"].__class__.__name__ == "PytestJUnitResultsAdapter"

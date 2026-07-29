@@ -25,6 +25,7 @@ class RunSettings:
     report: ReportFormat
     out: str | None
     quarantine_out: str | None
+    fail_on_flaky: bool
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -71,6 +72,21 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="quarantine_out",
         default=None,
         help="Write flaky test ids (one per line) to a file path",
+    )
+    fail_mode = run_parser.add_mutually_exclusive_group()
+    fail_mode.add_argument(
+        "--fail-on-flaky",
+        dest="fail_on_flaky",
+        action="store_true",
+        default=None,
+        help="Exit non-zero when flaky tests are detected",
+    )
+    fail_mode.add_argument(
+        "--no-fail-on-flaky",
+        dest="fail_on_flaky",
+        action="store_false",
+        default=None,
+        help="Always exit zero even when flaky tests are detected",
     )
     run_parser.add_argument(
         "target_command",
@@ -171,6 +187,12 @@ def _resolve_run_settings(args: argparse.Namespace, parser: argparse.ArgumentPar
     if quarantine_out is not None and not isinstance(quarantine_out, str):
         parser.error("quarantine_out must be a string path")
 
+    fail_on_flaky = (
+        args.fail_on_flaky if args.fail_on_flaky is not None else config.get("fail_on_flaky", True)
+    )
+    if not isinstance(fail_on_flaky, bool):
+        parser.error("fail_on_flaky must be a boolean")
+
     return RunSettings(
         runner=runner,
         repeat=repeat,
@@ -178,6 +200,7 @@ def _resolve_run_settings(args: argparse.Namespace, parser: argparse.ArgumentPar
         report=cast(ReportFormat, report),
         out=out,
         quarantine_out=quarantine_out,
+        fail_on_flaky=fail_on_flaky,
     )
 
 
@@ -230,6 +253,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     handle.write("\n".join(quarantine_tests))
                     handle.write("\n")
 
+        has_flaky = any(item.verdict.lower() == "flaky" for item in classifications)
+        if settings.fail_on_flaky and has_flaky:
+            return 1
         return 0
 
     parser.error("unknown command")
